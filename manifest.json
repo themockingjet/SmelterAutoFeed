@@ -1,0 +1,9 @@
+{
+  "name": "SmeltAndFuel",
+  "version_number": "0.5.13",
+  "website_url": "https://github.com/themockingjet/SmelterAutoFeed",
+  "description": "Feeds loaded Valheim production stations and selected fireplaces from nearby accessible containers, with optional unlimited fuel.",
+  "dependencies": [
+    "denikson-BepInExPack_Valheim-5.4.2202"
+  ]
+}
