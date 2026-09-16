@@ -2,6 +2,14 @@
 
 ## 0.5.13
 
+- Changed `Leave Last Item` to protect matching items in eligible containers
+  only; matching ground drops can always be consumed.
+- Recognized `piece_groundtorch_*` prefabs as standing torches for unlimited
+  fuel and automatic refueling.
+- Recognized campfires as fire pits for unlimited fuel and automatic refueling.
+- Restored normal fireplace fuel degradation after disabling `Unlimited Fuel`.
+- Fixed repeated null-reference errors when cached ground items are destroyed
+  before the next discovery refresh.
 - Changed automatic Windmill output release from every completed Flour to configurable batches, defaulting to 40.
 - Release a smaller remaining Flour batch when the native Barley queue is empty.
 

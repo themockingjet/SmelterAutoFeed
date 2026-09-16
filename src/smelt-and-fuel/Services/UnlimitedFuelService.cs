@@ -44,12 +44,7 @@ internal static class UnlimitedFuelService
     internal static void TryMaintainFuel(Fireplace fireplace)
     {
         AutoFeedSettings? settings = _settings;
-        if (settings is null ||
-            !settings.UnlimitedFuel.Value ||
-            !StationClassifier.IsRefillEnabled(fireplace, settings.Fireplaces) ||
-            fireplace.m_infiniteFuel ||
-            !fireplace.m_canRefill ||
-            fireplace.m_maxFuel <= 0f)
+        if (settings is null)
         {
             return;
         }
@@ -63,6 +58,20 @@ internal static class UnlimitedFuelService
         }
 
         ZDO fireplaceZdo = fireplaceView.GetZDO();
+        if (fireplace.m_canRefill && fireplace.m_maxFuel > 0f && fireplace.m_infiniteFuel)
+        {
+            fireplace.m_infiniteFuel = false;
+        }
+
+        bool refillEnabled = StationClassifier.IsRefillEnabled(fireplace, settings.Fireplaces);
+        if (!settings.UnlimitedFuel.Value ||
+            !refillEnabled ||
+            !fireplace.m_canRefill ||
+            fireplace.m_maxFuel <= 0f)
+        {
+            return;
+        }
+
         if (fireplaceZdo.GetFloat("fuel", 0f) < fireplace.m_maxFuel)
         {
             fireplaceZdo.Set("fuel", fireplace.m_maxFuel);

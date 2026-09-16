@@ -29,7 +29,7 @@ internal sealed class ContainerDiscovery
         float rangeSquared = range * range;
         foreach (Container container in _containers)
         {
-            if (container is null ||
+            if (container == null ||
                 !container.IsOwner() ||
                 container.IsInUse() ||
                 (container.transform.position - targetPosition).sqrMagnitude > rangeSquared ||

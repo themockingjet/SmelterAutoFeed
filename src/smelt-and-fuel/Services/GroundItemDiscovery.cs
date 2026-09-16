@@ -23,7 +23,7 @@ internal sealed class GroundItemDiscovery
         float rangeSquared = range * range;
         foreach (ItemDrop itemDrop in _items)
         {
-            if (itemDrop is null ||
+            if (itemDrop == null ||
                 itemDrop.m_itemData is null ||
                 (itemDrop.transform.position - targetPosition).sqrMagnitude > rangeSquared)
             {
@@ -31,7 +31,7 @@ internal sealed class GroundItemDiscovery
             }
 
             ZNetView? itemView = itemDrop.GetComponent<ZNetView>();
-            if (itemView is null || !itemView.IsValid() || !itemView.IsOwner())
+            if (itemView == null || !itemView.IsValid() || !itemView.IsOwner())
             {
                 continue;
             }

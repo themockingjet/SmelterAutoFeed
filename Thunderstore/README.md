@@ -32,8 +32,8 @@ The generated BepInEx configuration file has these settings:
 | `Feed Ore / Inputs` | `true` | Enables input-queue feeding for every enabled station. This includes ore, kiln wood, grain, flax, and refinery ingredients. |
 | `Feed Fuel` | `true` | Enables fuel-slot feeding for every enabled station. The Frigid Kiln uses this setting to consume Ice. |
 | `Unlimited Fuel` | `false` | Maintains enabled supported targets at full fuel without consuming fuel items or triggering the normal refuel RPC/effects. Fireplace hover and interaction remain available. The Frigid Kiln is excluded so that it always consumes Ice. Input feeding remains enabled. |
-| `Leave Last Item` | `true` | Keeps one item for each matching prefab across all eligible nearby containers and ground drops combined. Disable only when automatic feeding may consume the final matching item. |
-| `Use Ground Items` | `false` | Allows compatible dropped items on the ground to be used after nearby eligible containers have been checked. |
+| `Leave Last Item` | `true` | Keeps one matching item for each prefab across all eligible nearby containers. Ground items are always eligible for consumption. |
+| `Use Ground Items` | `false` | Allows compatible dropped items on the ground to be used as an automatic source. When `Leave Last Item` is enabled, matching ground drops are preferred so a final matching container item remains protected. |
 | `Ground Item Range` | `5` | Maximum distance in meters from a station or fireplace to a dropped ground item. |
 | `Fuel Priority` | `RoundLog,Wood` | Comma-separated fireplace fuel prefab names, evaluated left to right. Production stations always use their native fuel. |
 | `Fuel Disallow Types` | `FineWood` | Comma-separated fuel prefab names never used by automatic refueling. This always overrides `Fuel Priority`. |

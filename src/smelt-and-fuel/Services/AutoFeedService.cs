@@ -164,14 +164,19 @@ internal sealed class AutoFeedService
             now);
         List<ItemDrop> sourceGroundItems = GetSourceGroundItems(position, now);
 
+        if (_settings.LeaveLastItem.Value &&
+            TryFeedGroundOre(smelter, smelterView, sourceGroundItems))
+        {
+            return;
+        }
+
         foreach (Container container in sourceContainers)
         {
             Inventory inventory = container.GetInventory();
             ItemDrop.ItemData? ore = FindConsumableCookableItem(
                 smelter,
                 inventory,
-                sourceContainers,
-                sourceGroundItems);
+                sourceContainers);
             if (ore is null || ore.m_dropPrefab is null)
             {
                 continue;
@@ -187,20 +192,37 @@ internal sealed class AutoFeedService
             return;
         }
 
+        if (!_settings.LeaveLastItem.Value)
+        {
+            TryFeedGroundOre(smelter, smelterView, sourceGroundItems);
+        }
+    }
+
+    private bool TryFeedGroundOre(
+        Smelter smelter,
+        ZNetView smelterView,
+        List<ItemDrop> sourceGroundItems)
+    {
         foreach (ItemDrop itemDrop in sourceGroundItems)
         {
+            if (itemDrop == null)
+            {
+                continue;
+            }
+
             ItemDrop.ItemData item = itemDrop.m_itemData;
             if (item.m_dropPrefab is null ||
                 !IsItemAllowed(smelter, item) ||
-                !CanConsumeItem(item, sourceContainers, sourceGroundItems) ||
                 !itemDrop.RemoveOne())
             {
                 continue;
             }
 
             smelterView.InvokeRPC("RPC_AddOre", item.m_dropPrefab.name, false);
-            return;
+            return true;
         }
+
+        return false;
     }
 
     private void TryFeedFuel(
@@ -245,6 +267,12 @@ internal sealed class AutoFeedService
         List<Container> sourceContainers = GetSourceContainers(position, range, playerId, now);
         List<ItemDrop> sourceGroundItems = GetSourceGroundItems(position, now);
 
+        if (_settings.LeaveLastItem.Value &&
+            TryTakeGroundFuelByName(fuelPrefabName, sourceGroundItems))
+        {
+            return true;
+        }
+
         foreach (Container container in sourceContainers)
         {
             Inventory inventory = container.GetInventory();
@@ -252,7 +280,7 @@ internal sealed class AutoFeedService
             {
                 if (item.m_dropPrefab is null ||
                     !string.Equals(item.m_dropPrefab.name, fuelPrefabName, StringComparison.OrdinalIgnoreCase) ||
-                    !CanConsumeItem(item, sourceContainers, sourceGroundItems) ||
+                    !CanConsumeContainerItem(item, sourceContainers) ||
                     !inventory.RemoveItem(item, 1))
                 {
                     continue;
@@ -262,12 +290,24 @@ internal sealed class AutoFeedService
             }
         }
 
+        return !_settings.LeaveLastItem.Value &&
+               TryTakeGroundFuelByName(fuelPrefabName, sourceGroundItems);
+    }
+
+    private bool TryTakeGroundFuelByName(
+        string fuelPrefabName,
+        List<ItemDrop> sourceGroundItems)
+    {
         foreach (ItemDrop itemDrop in sourceGroundItems)
         {
+            if (itemDrop == null)
+            {
+                continue;
+            }
+
             ItemDrop.ItemData item = itemDrop.m_itemData;
             if (item.m_dropPrefab is null ||
                 !string.Equals(item.m_dropPrefab.name, fuelPrefabName, StringComparison.OrdinalIgnoreCase) ||
-                !CanConsumeItem(item, sourceContainers, sourceGroundItems) ||
                 !itemDrop.RemoveOne())
             {
                 continue;
@@ -282,11 +322,10 @@ internal sealed class AutoFeedService
     private ItemDrop.ItemData? FindConsumableCookableItem(
         Smelter smelter,
         Inventory inventory,
-        List<Container> sourceContainers,
-        List<ItemDrop> sourceGroundItems)
+        List<Container> sourceContainers)
     {
         ItemDrop.ItemData? nativeMatch = FindCookableItem(smelter, inventory);
-        if (nativeMatch is not null && CanConsumeItem(nativeMatch, sourceContainers, sourceGroundItems))
+        if (nativeMatch is not null && CanConsumeContainerItem(nativeMatch, sourceContainers))
         {
             return nativeMatch;
         }
@@ -300,7 +339,7 @@ internal sealed class AutoFeedService
         {
             if (item.m_dropPrefab is not null &&
                 IsItemAllowed(smelter, item) &&
-                CanConsumeItem(item, sourceContainers, sourceGroundItems))
+                CanConsumeContainerItem(item, sourceContainers))
             {
                 return item;
             }
@@ -321,23 +360,21 @@ internal sealed class AutoFeedService
             : new List<ItemDrop>();
     }
 
-    private bool CanConsumeItem(
+    private bool CanConsumeContainerItem(
         ItemDrop.ItemData candidate,
-        List<Container> sourceContainers,
-        List<ItemDrop> sourceGroundItems)
+        List<Container> sourceContainers)
     {
         if (!_settings.LeaveLastItem.Value)
         {
             return true;
         }
 
-        return CountMatchingSourceItems(candidate.m_dropPrefab, sourceContainers, sourceGroundItems) > 1;
+        return CountMatchingContainerItems(candidate.m_dropPrefab, sourceContainers) > 1;
     }
 
-    private static int CountMatchingSourceItems(
+    private static int CountMatchingContainerItems(
         GameObject? prefab,
-        List<Container> sourceContainers,
-        List<ItemDrop> sourceGroundItems)
+        List<Container> sourceContainers)
     {
         if (prefab is null)
         {
@@ -348,11 +385,6 @@ internal sealed class AutoFeedService
         foreach (Container container in sourceContainers)
         {
             count += CountMatchingItems(container.GetInventory().GetAllItems(), prefab);
-        }
-
-        foreach (ItemDrop itemDrop in sourceGroundItems)
-        {
-            count += CountMatchingItems(new[] { itemDrop.m_itemData }, prefab);
         }
 
         return count;

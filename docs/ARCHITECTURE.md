@@ -70,10 +70,11 @@ shutdown.
   native RPC, so the normal Valheim queue, fuel, effects, and network
   replication remain authoritative.
 - Unlimited production-station and oven fuel uses the target's native
-  `GetFuel`/`SetFuel` methods. The existing unlimited fireplace path restores
-  the authoritative `fuel` ZDO value without consuming an item or triggering
-  the normal refill RPC/effects; it does not edit inventory, queue, drop, or
-  ownership state.
+  `GetFuel`/`SetFuel` methods. The unlimited fireplace path restores the
+  authoritative `fuel` ZDO value without consuming an item or triggering the
+  normal refill RPC/effects. Refuelable configured fireplaces also normalize a
+  stale native infinite-fuel flag so hover text and normal fuel degradation
+  remain available when the setting is disabled.
 - The Frigid Kiln is excluded from unlimited fuel. Its Ice remains a native
   consumable fuel/input and is added through the normal `RPC_AddFuel` flow.
 
@@ -83,8 +84,9 @@ For each eligible target, the service first handles configured windmill output
 release, then input feeding, then fuel feeding. It caps configured targets to
 the station's native capacity and requires room for one complete fuel item
 before removing a source item. `Leave Last Item` counts matching stacks across
-all eligible containers and ground drops together, preserving one aggregate
-item when enabled.
+eligible containers only, preserving one aggregate container item when enabled.
+Ground drops are always eligible for consumption, and are preferred before a
+matching container item when `Leave Last Item` is enabled.
 
 Native `Smelter.FindCookableItem` and `Smelter.IsItemAllowed` determine input
 compatibility. Fireplace priorities are considered left to right, with

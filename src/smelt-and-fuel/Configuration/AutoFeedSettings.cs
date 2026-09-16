@@ -137,7 +137,7 @@ internal sealed class AutoFeedSettings
                 "Feeding",
                 "Leave Last Item",
                 true,
-                "Keep one matching item across all eligible nearby containers and ground drops."),
+                "Keep one matching item across all eligible nearby containers. Ground items are always eligible for consumption."),
             new GroundItemSettings(
                 config.Bind(
                     "Ground Items",

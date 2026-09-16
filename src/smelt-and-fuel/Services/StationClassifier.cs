@@ -78,7 +78,7 @@ internal static class StationClassifier
         string prefabName = GetStableObjectName(fireplace.gameObject.name);
         string displayName = fireplace.m_name ?? string.Empty;
 
-        if (HasFireplaceName(prefabName, displayName, "standingtorch"))
+        if (HasFireplaceName(prefabName, displayName, "standingtorch", "groundtorch"))
         {
             return settings.RefuelStandingTorches.Value;
         }
@@ -98,7 +98,8 @@ internal static class StationClassifier
             return settings.RefuelWallTorches.Value;
         }
 
-        if (HasFireplaceName(prefabName, displayName, "firepit", "fire_pit"))
+        if (HasFireplaceName(prefabName, displayName, "firepit", "fire_pit") ||
+            HasFireplaceName(prefabName, displayName, "campfire"))
         {
             return settings.RefuelFirePits.Value;
         }
