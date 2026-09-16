@@ -1,4 +1,13 @@
 bin/
 obj/
-release/*.zip
-release/.package-staging/
+release/
+
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Local Valheim and BepInEx references must stay outside the repository.
+managed/
+BepInEx/
+*.dll
