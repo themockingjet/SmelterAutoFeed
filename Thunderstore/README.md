@@ -2,8 +2,6 @@
 
 SmeltAndFuel is an independently implemented BepInEx 5 mod for current Valheim that automatically moves compatible inputs and fuel from nearby containers into production stations and selected fireplaces.
 
-For a maintainable source-file map and runtime-flow overview, see [the architecture guide](../docs/ARCHITECTURE.md).
-
 ## Why existing smelters work
 
 SmeltAndFuel does not cache smelters or containers when they are built. Instead, it patches Valheim's `Smelter.UpdateSmelter` method. Every loaded smelter therefore participates as soon as its normal update runs, including smelters that existed before the mod was installed or before a player entered the area.

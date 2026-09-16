@@ -14,6 +14,6 @@ internal static class SmelterUpdatePatch
     [HarmonyPostfix]
     private static void Postfix(Smelter __instance)
     {
-        AutoFeedService.TryFeed(__instance);
+        AutoFeedService.QueueFeed(__instance);
     }
 }

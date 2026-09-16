@@ -15,29 +15,33 @@ internal sealed class GroundItemDiscovery
         _settings = settings;
     }
 
-    internal IEnumerable<ItemDrop> GetUsableItems(Vector3 targetPosition, float now)
+    internal void FillUsableItems(Vector3 targetPosition, float now, List<ItemDrop> results)
     {
+        results.Clear();
         Refresh(now);
 
         float range = _settings.GroundItems.Range.Value;
         float rangeSquared = range * range;
         foreach (ItemDrop itemDrop in _items)
         {
-            if (itemDrop == null ||
-                itemDrop.m_itemData is null ||
-                (itemDrop.transform.position - targetPosition).sqrMagnitude > rangeSquared)
+            if (IsUsable(itemDrop, targetPosition, rangeSquared))
             {
-                continue;
+                results.Add(itemDrop);
             }
-
-            ZNetView? itemView = itemDrop.GetComponent<ZNetView>();
-            if (itemView == null || !itemView.IsValid() || !itemView.IsOwner())
-            {
-                continue;
-            }
-
-            yield return itemDrop;
         }
+    }
+
+    internal bool IsUsable(ItemDrop itemDrop, Vector3 targetPosition, float rangeSquared)
+    {
+        if (itemDrop == null ||
+            itemDrop.m_itemData is null ||
+            (itemDrop.transform.position - targetPosition).sqrMagnitude > rangeSquared)
+        {
+            return false;
+        }
+
+        ZNetView? itemView = itemDrop.GetComponent<ZNetView>();
+        return itemView != null && itemView.IsValid() && itemView.IsOwner();
     }
 
     private void Refresh(float now)

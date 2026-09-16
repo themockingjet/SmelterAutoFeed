@@ -49,6 +49,11 @@ internal static class UnlimitedFuelService
             return;
         }
 
+        if (!settings.UnlimitedFuel.Value && !fireplace.m_infiniteFuel)
+        {
+            return;
+        }
+
         ZNetView? fireplaceView = fireplace.GetComponent<ZNetView>();
         if (fireplaceView is null ||
             !fireplaceView.IsValid() ||
@@ -63,9 +68,12 @@ internal static class UnlimitedFuelService
             fireplace.m_infiniteFuel = false;
         }
 
-        bool refillEnabled = StationClassifier.IsRefillEnabled(fireplace, settings.Fireplaces);
-        if (!settings.UnlimitedFuel.Value ||
-            !refillEnabled ||
+        if (!settings.UnlimitedFuel.Value)
+        {
+            return;
+        }
+
+        if (!StationClassifier.IsRefillEnabled(fireplace, settings.Fireplaces) ||
             !fireplace.m_canRefill ||
             fireplace.m_maxFuel <= 0f)
         {
@@ -75,6 +83,15 @@ internal static class UnlimitedFuelService
         if (fireplaceZdo.GetFloat("fuel", 0f) < fireplace.m_maxFuel)
         {
             fireplaceZdo.Set("fuel", fireplace.m_maxFuel);
+        }
+    }
+
+    internal static void TryMaintainFuelAfterUpdate(Fireplace fireplace)
+    {
+        AutoFeedSettings? settings = _settings;
+        if (settings is not null && settings.UnlimitedFuel.Value)
+        {
+            TryMaintainFuel(fireplace);
         }
     }
 

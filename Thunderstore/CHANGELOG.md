@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.0
+
+- Added spatially indexed container discovery with moving wagon-container
+  fallback to reduce source scans in dense bases.
+- Reused discovery buffers, bounded feed timing state, and spread automatic
+  feed work across frames with a fixed internal time budget.
+- Revalidated source ownership, access, range, and validity immediately before
+  inventory or ground-item mutation.
+
 ## 0.5.13
 
 - Changed `Leave Last Item` to protect matching items in eligible containers

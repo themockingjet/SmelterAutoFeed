@@ -6,76 +6,89 @@ internal static class StationClassifier
 {
     internal static bool TryGetStationSettings(Smelter smelter, AutoFeedSettings settings, out StationSettings stationSettings)
     {
-        switch (GetStableObjectName(smelter.gameObject.name))
+        string objectName = smelter.gameObject.name;
+        if (NameEquals(objectName, "smelter"))
         {
-            case "smelter":
-                stationSettings = settings.Smelter;
-                return true;
-            case "blastfurnace":
-                stationSettings = settings.BlastFurnace;
-                return true;
-            case "charcoal_kiln":
-                stationSettings = settings.CharcoalKiln;
-                return true;
-            case "windmill":
-                stationSettings = settings.Windmill;
-                return true;
-            case "spinningwheel":
-            case "piece_spinningwheel":
-                stationSettings = settings.SpinningWheel;
-                return true;
-            case "eitrrefinery":
-                stationSettings = settings.EitrRefinery;
-                return true;
-            case "frostkiln":
-            case "piece_frostkiln":
-                stationSettings = settings.FrigidKiln;
-                return true;
-            default:
-                stationSettings = null!;
-                return false;
+            stationSettings = settings.Smelter;
+            return true;
         }
+
+        if (NameEquals(objectName, "blastfurnace"))
+        {
+            stationSettings = settings.BlastFurnace;
+            return true;
+        }
+
+        if (NameEquals(objectName, "charcoal_kiln"))
+        {
+            stationSettings = settings.CharcoalKiln;
+            return true;
+        }
+
+        if (NameEquals(objectName, "windmill"))
+        {
+            stationSettings = settings.Windmill;
+            return true;
+        }
+
+        if (NameEquals(objectName, "spinningwheel") || NameEquals(objectName, "piece_spinningwheel"))
+        {
+            stationSettings = settings.SpinningWheel;
+            return true;
+        }
+
+        if (NameEquals(objectName, "eitrrefinery"))
+        {
+            stationSettings = settings.EitrRefinery;
+            return true;
+        }
+
+        if (NameEquals(objectName, "frostkiln") || NameEquals(objectName, "piece_frostkiln"))
+        {
+            stationSettings = settings.FrigidKiln;
+            return true;
+        }
+
+        stationSettings = null!;
+        return false;
     }
 
     internal static bool SupportsUnlimitedFuel(Smelter smelter)
     {
-        switch (GetStableObjectName(smelter.gameObject.name))
+        if (NameEquals(smelter.gameObject.name, "frostkiln") ||
+            NameEquals(smelter.gameObject.name, "piece_frostkiln"))
         {
-            case "frostkiln":
-            case "piece_frostkiln":
-                return false;
-            default:
-                return true;
+            return false;
         }
+
+        return true;
     }
 
     internal static bool IsWindmill(Smelter smelter)
     {
-        switch (GetStableObjectName(smelter.gameObject.name))
+        if (NameEquals(smelter.gameObject.name, "windmill") ||
+            NameEquals(smelter.gameObject.name, "piece_windmill"))
         {
-            case "windmill":
-            case "piece_windmill":
-                return true;
-            default:
-                return false;
+            return true;
         }
+
+        return false;
     }
 
     internal static bool IsOven(CookingStation cookingStation)
     {
-        switch (GetStableObjectName(cookingStation.gameObject.name))
+        if (NameEquals(cookingStation.gameObject.name, "oven") ||
+            NameEquals(cookingStation.gameObject.name, "piece_oven"))
         {
-            case "oven":
-            case "piece_oven":
-                return true;
-            default:
-                return false;
+            return true;
         }
+
+        return false;
     }
 
     internal static bool IsRefillEnabled(Fireplace fireplace, FireplaceSettings settings)
     {
-        string prefabName = GetStableObjectName(fireplace.gameObject.name);
+        string prefabName = fireplace.gameObject.name;
         string displayName = fireplace.m_name ?? string.Empty;
 
         if (HasFireplaceName(prefabName, displayName, "standingtorch", "groundtorch"))
@@ -112,14 +125,15 @@ internal static class StationClassifier
         return HasFireplaceName(prefabName, displayName, "bonfire") && settings.RefuelBonfires.Value;
     }
 
-    private static string GetStableObjectName(string objectName)
+    private static bool NameEquals(string objectName, string expectedName)
     {
         const string cloneSuffix = "(Clone)";
-        string prefabName = objectName.EndsWith(cloneSuffix, StringComparison.Ordinal)
-            ? objectName.Substring(0, objectName.Length - cloneSuffix.Length)
-            : objectName;
+        int stableLength = objectName.EndsWith(cloneSuffix, StringComparison.Ordinal)
+            ? objectName.Length - cloneSuffix.Length
+            : objectName.Length;
 
-        return prefabName.ToLowerInvariant();
+        return stableLength == expectedName.Length &&
+               string.Compare(objectName, 0, expectedName, 0, expectedName.Length, StringComparison.OrdinalIgnoreCase) == 0;
     }
 
     private static bool HasFireplaceName(string prefabName, string displayName, string name)

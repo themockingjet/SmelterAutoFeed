@@ -14,7 +14,7 @@ internal static class FireplaceUpdatePatch
     [HarmonyPostfix]
     private static void Postfix(Fireplace __instance)
     {
-        AutoFeedService.TryRefuel(__instance);
-        UnlimitedFuelService.TryMaintainFuel(__instance);
+        AutoFeedService.QueueRefuel(__instance);
+        UnlimitedFuelService.TryMaintainFuelAfterUpdate(__instance);
     }
 }

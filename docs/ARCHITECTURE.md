@@ -16,8 +16,8 @@ remain owned by Valheim.
    configures the feed services, and applies Harmony patches using the
    preserved `str.smeltandfuel` GUID.
 2. [`SmelterUpdatePatch.cs`](../src/smelt-and-fuel/Patches/SmelterUpdatePatch.cs)
-   runs the unlimited-fuel prefix and the automatic feed postfix around every
-   loaded `Smelter.UpdateSmelter` call.
+  runs the unlimited-fuel prefix around every loaded `Smelter.UpdateSmelter`
+  call and queues automatic feed work from its postfix.
 3. [`CookingStationUpdatePatch.cs`](../src/smelt-and-fuel/Patches/CookingStationUpdatePatch.cs)
    maintains unlimited Stone Oven fuel in the
    `CookingStation.UpdateCooking` prefix. It does not change cooking slots or
@@ -27,17 +27,22 @@ remain owned by Valheim.
    performs normal fireplace refueling through the native `RPC_AddFuel` path
    when unlimited fuel is disabled.
 5. [`AutoFeedService.cs`](../src/smelt-and-fuel/Services/AutoFeedService.cs)
-   applies enablement, target, ownership, access, and interval checks. It
-   removes one item only after a valid source has been selected, then invokes
-   Valheim's native ore, fuel, or windmill-output RPC.
+  drains a bounded per-frame queue of eligible targets, applies enablement,
+  target, ownership, access, interval, and retry checks, and reuses one source
+  snapshot across input and fuel work for a target. It removes one item only
+  after a valid source has been selected and revalidated, then invokes
+  Valheim's native ore, fuel, or windmill-output RPC.
 
 The service instances are configured once during plugin startup. Discovery
-snapshots are refreshed on the configured interval, and per-target feed times
-are keyed by the target `ZDOID`. There is no custom scene or network state to
-persist. When the plugin or game process is unloaded, Unity and Harmony release
-the patched object graph and the static service state is recreated on the next
-plugin load; no ownership claims or background workers require explicit
-shutdown.
+snapshots are refreshed on the configured interval, and per-target feed and
+bounded no-source retry times are keyed by the target `ZDOID`. Native update
+callbacks enqueue each target at most once until its pass is processed, and the
+plugin drains at most four automatic feed passes per Unity frame with fair
+turn-taking between production stations and fireplaces. There is no custom
+scene or network state to persist. When the plugin or game process is unloaded,
+Unity and Harmony release the patched object graph and the static service state
+is recreated on the next plugin load; no ownership claims or background
+workers require explicit shutdown.
 
 ## Components
 
@@ -48,7 +53,7 @@ shutdown.
 | [`SmelterUpdatePatch`](../src/smelt-and-fuel/Patches/SmelterUpdatePatch.cs) | Integrates input, fuel, and windmill-output automation with loaded production stations. | `Smelter.UpdateSmelter`. |
 | [`CookingStationUpdatePatch`](../src/smelt-and-fuel/Patches/CookingStationUpdatePatch.cs) | Integrates optional Stone Oven unlimited fuel. | `CookingStation.UpdateCooking`. |
 | [`FireplaceUpdatePatch`](../src/smelt-and-fuel/Patches/FireplaceUpdatePatch.cs) | Integrates fireplace unlimited fuel and normal refueling. | `Fireplace.UpdateFireplace`, `Fireplace.RPC_AddFuel`. |
-| [`AutoFeedService`](../src/smelt-and-fuel/Services/AutoFeedService.cs) | Feed decisions, aggregate source counts, target caps, removal, and native RPC calls. | `FindCookableItem`, `IsItemAllowed`, queue/fuel APIs, `RPC_AddOre`, `RPC_AddFuel`, and `RPC_EmptyProcessed`. |
+| [`AutoFeedService`](../src/smelt-and-fuel/Services/AutoFeedService.cs) | Bounded target scheduling, feed decisions, aggregate source counts, target caps, removal, and native RPC calls. | `FindCookableItem`, `IsItemAllowed`, queue/fuel APIs, `RPC_AddOre`, `RPC_AddFuel`, and `RPC_EmptyProcessed`. |
 | [`UnlimitedFuelService`](../src/smelt-and-fuel/Services/UnlimitedFuelService.cs) | Owner-authoritative native fuel maintenance for supported stations and the oven; existing authoritative fireplace fuel restoration. | `GetFuel`, `SetFuel`, and the fireplace `fuel` ZDO value. |
 | [`StationClassifier`](../src/smelt-and-fuel/Services/StationClassifier.cs) | Maps stable Valheim object names to configured station and fireplace categories. | Valheim object names and native station fields. |
 | [`ContainerDiscovery`](../src/smelt-and-fuel/Services/ContainerDiscovery.cs) | Throttled loaded-container discovery and source eligibility checks. | `Container.IsOwner`, `Container.IsInUse`, `Container.GetInventory`, and native `Container.CheckAccess(long)`. |
@@ -87,6 +92,21 @@ before removing a source item. `Leave Last Item` counts matching stacks across
 eligible containers only, preserving one aggregate container item when enabled.
 Ground drops are always eligible for consumption, and are preferred before a
 matching container item when `Leave Last Item` is enabled.
+
+Input and fuel operations for one target pass share the same loaded source
+snapshot. Matching container-item totals are cached for that pass and updated
+after a successful removal. Targets with no usable source use a bounded retry
+backoff, while any successful transfer returns them to the configured feed
+interval.
+
+Container discovery refreshes the loaded-container snapshot on the configured
+interval, indexes stationary containers into conservative 25-meter X/Z cells,
+and keeps wagon-backed containers in a dynamic fallback list because their
+positions can change between refreshes. The index only narrows candidates; each
+candidate is rechecked for Unity validity, ownership, in-use state, exact range,
+and native access before inventory access and again before removal. Source
+buffers are reused by the single-threaded feed service and never survive the
+current target pass.
 
 Native `Smelter.FindCookableItem` and `Smelter.IsItemAllowed` determine input
 compatibility. Fireplace priorities are considered left to right, with
