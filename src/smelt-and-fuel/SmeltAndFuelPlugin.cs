@@ -8,7 +8,7 @@ public sealed class SmeltAndFuelPlugin : BaseUnityPlugin
 {
     internal const string PluginGuid = "str.smeltandfuel";
     private const string PluginName = "SmeltAndFuel";
-    private const string PluginVersion = "0.6.0";
+    private const string PluginVersion = "0.6.2";
 
     private void Awake()
     {

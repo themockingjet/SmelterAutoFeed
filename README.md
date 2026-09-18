@@ -27,7 +27,7 @@ make package
 make verify-release
 ```
 
-The package is written to `release/SmeltAndFuel-0.6.0.zip` and contains only
+The package is written to `release/SmeltAndFuel-0.6.2.zip` and contains only
 the Thunderstore metadata files and `SmeltAndFuel.dll` at the ZIP root.
 
 ## Deploy to a test server

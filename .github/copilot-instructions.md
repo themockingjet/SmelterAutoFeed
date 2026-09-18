@@ -25,7 +25,7 @@ native APIs and RPC flows.
 ## Critical game rules
 
 - Keep the plugin GUID `str.smeltandfuel`, assembly name `SmeltAndFuel`, root
-  namespace `SmeltAndFuel`, package name `SmeltAndFuel`, and version `0.6.0`.
+  namespace `SmeltAndFuel`, package name `SmeltAndFuel`, and version `0.6.2`.
 - Preserve every existing BepInEx configuration section, key, default, range,
   and legacy migration path.
 - Mutate networked objects only through valid ownership and Valheim's native

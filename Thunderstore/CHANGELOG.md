@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.6.2
+
+- Reduced automatic queue churn by skipping disabled or ineligible targets and
+  by waiting until each target's feed interval is due before re-enqueueing it.
+- Reused the per-pass source snapshot and its matching-item cache to reduce
+  temporary allocations during automatic feeding.
+
+## 0.6.1
+
+- Reduced multiplayer overhead by limiting automation callbacks, queueing, and
+  pending-work processing to the local owner of each networked station,
+  fireplace, or oven.
+
 ## 0.6.0
 
 - Added spatially indexed container discovery with moving wagon-container

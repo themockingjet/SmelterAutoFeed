@@ -42,6 +42,7 @@ internal sealed class AutoFeedService
     private readonly FuelRules _fuelRules;
     private readonly List<Container> _containerBuffer = new();
     private readonly List<ItemDrop> _groundItemBuffer = new();
+    private readonly SourceSnapshot _sourceSnapshot = new();
     private readonly Dictionary<ZDOID, FeedTiming> _feedTimings = new();
     private readonly List<ZDOID> _timingPurgeBuffer = new();
     private readonly Queue<Smelter> _pendingSmelters = new();
@@ -77,11 +78,28 @@ internal sealed class AutoFeedService
 
     internal static void ProcessPending()
     {
-        _instance?.ProcessPendingPasses();
+        AutoFeedService? instance = _instance;
+        if (instance is not null && instance.HasPendingWork)
+        {
+            instance.ProcessPendingPasses();
+        }
     }
+
+    private bool HasPendingWork =>
+        _pendingSmelters.Count > 0 || _pendingFireplaces.Count > 0;
 
     private void EnqueueFeed(Smelter smelter)
     {
+        ZNetView? smelterView = smelter.GetComponent<ZNetView>();
+        if (smelterView is null ||
+            !smelterView.IsValid() ||
+            !smelterView.IsOwner() ||
+            !IsFeedDue(smelterView, Time.time) ||
+            !ShouldFeedSmelter(smelter))
+        {
+            return;
+        }
+
         if (_queuedSmelters.Add(smelter))
         {
             _pendingSmelters.Enqueue(smelter);
@@ -95,10 +113,44 @@ internal sealed class AutoFeedService
             return;
         }
 
+        ZNetView? fireplaceView = fireplace.GetComponent<ZNetView>();
+        if (fireplaceView is null ||
+            !fireplaceView.IsValid() ||
+            !fireplaceView.IsOwner() ||
+            !IsFeedDue(fireplaceView, Time.time) ||
+            !ShouldRefuelFireplace(fireplace))
+        {
+            return;
+        }
+
         if (_queuedFireplaces.Add(fireplace))
         {
             _pendingFireplaces.Enqueue(fireplace);
         }
+    }
+
+    private bool ShouldFeedSmelter(Smelter smelter)
+    {
+        if (!StationClassifier.TryGetStationSettings(smelter, _settings, out StationSettings stationSettings) ||
+            !stationSettings.Enabled.Value)
+        {
+            return false;
+        }
+
+        bool canFeedFuel = _settings.FeedFuel.Value &&
+            smelter.m_fuelItem is not null &&
+            (!_settings.UnlimitedFuel.Value || !StationClassifier.SupportsUnlimitedFuel(smelter));
+        return _settings.FeedOre.Value ||
+               canFeedFuel ||
+               (_settings.AutoEmptyWindmillOutput.Value && StationClassifier.IsWindmill(smelter));
+    }
+
+    private bool ShouldRefuelFireplace(Fireplace fireplace)
+    {
+        return !fireplace.m_infiniteFuel &&
+               fireplace.m_canRefill &&
+               fireplace.m_fuelItem is not null &&
+               StationClassifier.IsRefillEnabled(fireplace, _settings.Fireplaces);
     }
 
     private void ProcessPendingPasses()
@@ -314,6 +366,12 @@ internal sealed class AutoFeedService
             LastSeenTime = now
         };
         return true;
+    }
+
+    private bool IsFeedDue(ZNetView targetView, float now)
+    {
+        return !_feedTimings.TryGetValue(targetView.GetZDO().m_uid, out FeedTiming timing) ||
+               now >= timing.NextFeedTime;
     }
 
     private void RecordFeedResult(ZNetView targetView, float now, bool fed)
@@ -579,7 +637,7 @@ internal sealed class AutoFeedService
             _groundItems.FillUsableItems(position, now, _groundItemBuffer);
         }
 
-        return new SourceSnapshot(
+        _sourceSnapshot.Initialize(
             _containers,
             _groundItems,
             _containerBuffer,
@@ -589,6 +647,7 @@ internal sealed class AutoFeedService
             range * range,
             playerId,
             _settings.GroundItems.Range.Value * _settings.GroundItems.Range.Value);
+        return _sourceSnapshot;
     }
 
     private static int CountMatchingItems(IEnumerable<ItemDrop.ItemData> items, GameObject prefab)
@@ -609,15 +668,15 @@ internal sealed class AutoFeedService
     private sealed class SourceSnapshot
     {
         private Dictionary<string, int>? _matchingContainerItemCounts;
-        private readonly ContainerDiscovery _containerDiscovery;
-        private readonly GroundItemDiscovery _groundItemDiscovery;
-        private readonly bool _leaveLastItem;
-        private readonly Vector3 _targetPosition;
-        private readonly float _rangeSquared;
-        private readonly float _groundRangeSquared;
-        private readonly long _playerId;
+        private ContainerDiscovery _containerDiscovery = null!;
+        private GroundItemDiscovery _groundItemDiscovery = null!;
+        private bool _leaveLastItem;
+        private Vector3 _targetPosition;
+        private float _rangeSquared;
+        private float _groundRangeSquared;
+        private long _playerId;
 
-        internal SourceSnapshot(
+        internal void Initialize(
             ContainerDiscovery containerDiscovery,
             GroundItemDiscovery groundItemDiscovery,
             IReadOnlyList<Container> containers,
@@ -628,6 +687,7 @@ internal sealed class AutoFeedService
             long playerId,
             float groundRangeSquared)
         {
+            _matchingContainerItemCounts?.Clear();
             _containerDiscovery = containerDiscovery;
             _groundItemDiscovery = groundItemDiscovery;
             Containers = containers;
@@ -639,9 +699,9 @@ internal sealed class AutoFeedService
             _playerId = playerId;
         }
 
-        internal IReadOnlyList<Container> Containers { get; }
+        internal IReadOnlyList<Container> Containers { get; private set; } = Array.Empty<Container>();
 
-        internal IReadOnlyList<ItemDrop> GroundItems { get; }
+        internal IReadOnlyList<ItemDrop> GroundItems { get; private set; } = Array.Empty<ItemDrop>();
 
         internal bool IsContainerUsable(Container container)
         {

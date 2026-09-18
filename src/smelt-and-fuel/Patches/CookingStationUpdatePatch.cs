@@ -8,6 +8,9 @@ internal static class CookingStationUpdatePatch
     [HarmonyPrefix]
     private static void Prefix(CookingStation __instance)
     {
-        UnlimitedFuelService.TryMaintainFuel(__instance);
+        if (NetworkAuthority.IsOwner(__instance))
+        {
+            UnlimitedFuelService.TryMaintainFuel(__instance);
+        }
     }
 }

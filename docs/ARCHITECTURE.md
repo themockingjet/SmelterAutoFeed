@@ -16,16 +16,16 @@ remain owned by Valheim.
    configures the feed services, and applies Harmony patches using the
    preserved `str.smeltandfuel` GUID.
 2. [`SmelterUpdatePatch.cs`](../src/smelt-and-fuel/Patches/SmelterUpdatePatch.cs)
-  runs the unlimited-fuel prefix around every loaded `Smelter.UpdateSmelter`
-  call and queues automatic feed work from its postfix.
+  runs the unlimited-fuel prefix and queues automatic feed work only for the
+  local network owner around each loaded `Smelter.UpdateSmelter` call.
 3. [`CookingStationUpdatePatch.cs`](../src/smelt-and-fuel/Patches/CookingStationUpdatePatch.cs)
-   maintains unlimited Stone Oven fuel in the
+   maintains unlimited Stone Oven fuel for the local network owner in the
    `CookingStation.UpdateCooking` prefix. It does not change cooking slots or
    recipes.
 4. [`FireplaceUpdatePatch.cs`](../src/smelt-and-fuel/Patches/FireplaceUpdatePatch.cs)
-   maintains unlimited fireplace fuel before and after the native update, then
-   performs normal fireplace refueling through the native `RPC_AddFuel` path
-   when unlimited fuel is disabled.
+   maintains unlimited fireplace fuel before and after the native update for
+   the local network owner, then performs normal fireplace refueling through
+   the native `RPC_AddFuel` path when unlimited fuel is disabled.
 5. [`AutoFeedService.cs`](../src/smelt-and-fuel/Services/AutoFeedService.cs)
   drains a bounded per-frame queue of eligible targets, applies enablement,
   target, ownership, access, interval, and retry checks, and reuses one source
@@ -36,9 +36,10 @@ remain owned by Valheim.
 The service instances are configured once during plugin startup. Discovery
 snapshots are refreshed on the configured interval, and per-target feed and
 bounded no-source retry times are keyed by the target `ZDOID`. Native update
-callbacks enqueue each target at most once until its pass is processed, and the
-plugin drains at most four automatic feed passes per Unity frame with fair
-turn-taking between production stations and fireplaces. There is no custom
+callbacks enqueue only eligible targets whose feed timing is due, at most once
+until their pass is processed, and the plugin drains at most four automatic
+feed passes per Unity frame with fair turn-taking between production stations
+and fireplaces. There is no custom
 scene or network state to persist. When the plugin or game process is unloaded,
 Unity and Harmony release the patched object graph and the static service state
 is recreated on the next plugin load; no ownership claims or background

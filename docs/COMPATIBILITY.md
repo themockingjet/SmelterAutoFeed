@@ -62,7 +62,7 @@ cache:
 | --- | --- |
 | Build inputs | `make preflight` succeeds after sourcing the shared environment. |
 | SDK/project | `make build` produces `src/smelt-and-fuel/bin/Release/net48/SmeltAndFuel.dll` and copies it to `release/`. |
-| Package shape | `make package` creates `release/SmeltAndFuel-0.6.0.zip` with metadata and the plugin DLL at the ZIP root. |
+| Package shape | `make package` creates `release/SmeltAndFuel-0.6.2.zip` with metadata and the plugin DLL at the ZIP root. |
 | Release safety | `make verify-release` rejects missing, extra, game, or loader DLLs and validates the checksum. |
 | Single-player | A loaded smelter, cooking station, fireplace, and windmill follow the configured feed and unlimited-fuel behavior. |
 | Multiplayer ownership | Only the owner of each station/fireplace mutates it; non-owner peers do not consume source items. |
