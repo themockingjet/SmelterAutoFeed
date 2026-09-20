@@ -1,4 +1,5 @@
 using System;
+using UnityEngine;
 
 namespace SmeltAndFuel;
 
@@ -13,10 +14,12 @@ internal static class UnlimitedFuelService
     private static readonly Action<CookingStation, float> SetCookingStationFuel =
         NativeMethodDelegate.Create<Action<CookingStation, float>>(typeof(CookingStation), "SetFuel", new[] { typeof(float) });
     private static AutoFeedSettings? _settings;
+    private static PlayerPresenceService? _presence;
 
-    internal static void Configure(AutoFeedSettings settings)
+    internal static void Configure(AutoFeedSettings settings, PlayerPresenceService presence)
     {
         _settings = settings;
+        _presence = presence;
     }
 
     internal static void TryMaintainFuel(Smelter smelter)
@@ -28,6 +31,12 @@ internal static class UnlimitedFuelService
             !stationSettings.Enabled.Value ||
             !StationClassifier.SupportsUnlimitedFuel(smelter) ||
             smelter.m_maxFuel <= 0)
+        {
+            return;
+        }
+
+        if (_presence is null ||
+            !_presence.IsAutomationActive(smelter.transform.position, Time.time))
         {
             return;
         }
@@ -45,6 +54,12 @@ internal static class UnlimitedFuelService
     {
         AutoFeedSettings? settings = _settings;
         if (settings is null)
+        {
+            return;
+        }
+
+        if (_presence is null ||
+            !_presence.IsAutomationActive(fireplace.transform.position, Time.time))
         {
             return;
         }
@@ -103,6 +118,12 @@ internal static class UnlimitedFuelService
             !settings.Oven.Value ||
             !StationClassifier.IsOven(cookingStation) ||
             cookingStation.m_maxFuel <= 0)
+        {
+            return;
+        }
+
+        if (_presence is null ||
+            !_presence.IsAutomationActive(cookingStation.transform.position, Time.time))
         {
             return;
         }

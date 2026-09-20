@@ -1,4 +1,8 @@
 <Project>
+  <PropertyGroup Condition="'$(PerformanceLoggingDefault)' == 'true'">
+    <DefineConstants>$(DefineConstants);SMELTANDFUEL_PERFORMANCE_LOGGING_DEFAULT</DefineConstants>
+  </PropertyGroup>
+
   <Target Name="CopyPluginToRelease" AfterTargets="Build"
           Condition="'$(Configuration)' == 'Release' and '$(ReleaseOutputPath)' != ''">
     <MakeDir Directories="$(ReleaseOutputPath)" />

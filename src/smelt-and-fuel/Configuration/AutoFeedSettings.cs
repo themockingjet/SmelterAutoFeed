@@ -5,10 +5,19 @@ namespace SmeltAndFuel;
 
 internal sealed class AutoFeedSettings
 {
+#if SMELTANDFUEL_PERFORMANCE_LOGGING_DEFAULT
+    private const bool DefaultPerformanceLogging = true;
+#else
+    private const bool DefaultPerformanceLogging = false;
+#endif
+
     private AutoFeedSettings(
         ConfigEntry<float> containerSearchRadius,
         ConfigEntry<float> feedInterval,
         ConfigEntry<float> containerRefreshInterval,
+        ConfigEntry<bool> performanceLogging,
+        ConfigEntry<bool> serverPresenceGate,
+        ConfigEntry<float> serverPresenceRadius,
         ConfigEntry<bool> feedOre,
         ConfigEntry<bool> feedFuel,
         ConfigEntry<bool> unlimitedFuel,
@@ -31,6 +40,9 @@ internal sealed class AutoFeedSettings
         ContainerSearchRadius = containerSearchRadius;
         FeedInterval = feedInterval;
         ContainerRefreshInterval = containerRefreshInterval;
+        PerformanceLogging = performanceLogging;
+        ServerPresenceGate = serverPresenceGate;
+        ServerPresenceRadius = serverPresenceRadius;
         FeedOre = feedOre;
         FeedFuel = feedFuel;
         UnlimitedFuel = unlimitedFuel;
@@ -56,6 +68,12 @@ internal sealed class AutoFeedSettings
     internal ConfigEntry<float> FeedInterval { get; }
 
     internal ConfigEntry<float> ContainerRefreshInterval { get; }
+
+    internal ConfigEntry<bool> PerformanceLogging { get; }
+
+    internal ConfigEntry<bool> ServerPresenceGate { get; }
+
+    internal ConfigEntry<float> ServerPresenceRadius { get; }
 
     internal ConfigEntry<bool> FeedOre { get; }
 
@@ -119,6 +137,23 @@ internal sealed class AutoFeedSettings
                     "How often, in seconds, SmeltAndFuel re-discovers loaded containers.",
                     new AcceptableValueRange<float>(0.5f, 30f))),
             config.Bind(
+                "Diagnostics",
+                "Performance Logging",
+                DefaultPerformanceLogging,
+                "Log rate-limited feed, source discovery, removal, retry, and RPC counters for performance troubleshooting."),
+            config.Bind(
+                "Server Automation",
+                "Require Nearby Player",
+                true,
+                "On a dedicated server, only automate targets while a player is within the server presence radius."),
+            config.Bind(
+                "Server Automation",
+                "Presence Radius",
+                64f,
+                new ConfigDescription(
+                    "Maximum distance, in meters, between a production target and a connected player for server automation.",
+                    new AcceptableValueRange<float>(16f, 256f))),
+            config.Bind(
                 "Feeding",
                 "Feed Ore / Inputs",
                 true,
@@ -154,12 +189,12 @@ internal sealed class AutoFeedSettings
             config.Bind(
                 "Fuel",
                 "Fuel Priority",
-                "RoundLog,Wood",
+                "Wood",
                 "Comma-separated fireplace fuel prefab names, highest priority first. Production stations always use their native fuel."),
             config.Bind(
                 "Fuel",
                 "Fuel Disallow Types",
-                "FineWood",
+                "RoundLog,FineWood",
                 "Comma-separated fuel prefab names that SmeltAndFuel must never use."),
             CreateStationSettings(config, "Smelter", "smelters"),
             CreateStationSettings(config, "Blast Furnace", "blast furnaces"),
@@ -183,7 +218,7 @@ internal sealed class AutoFeedSettings
                     new AcceptableValueRange<int>(1, 40))),
             CreateFireplaceSettings(config));
 
-        if (MigrateLegacySettings(config, existingDefinitions, settings))
+        if (LegacySettingsMigration.Migrate(config, existingDefinitions, settings))
         {
             config.Save();
         }
@@ -241,93 +276,6 @@ internal sealed class AutoFeedSettings
             new ConfigDescription(description, new AcceptableValueRange<int>(1, 100)));
     }
 
-    private static bool MigrateLegacySettings(
-        ConfigFile config,
-        HashSet<ConfigDefinition> existingDefinitions,
-        AutoFeedSettings settings)
-    {
-        bool migrated = false;
-
-        migrated |= Migrate(config, existingDefinitions, "General", "ContainerSearchRadius", settings.ContainerSearchRadius);
-        migrated |= Migrate(config, existingDefinitions, "General", "FeedInterval", settings.FeedInterval);
-        migrated |= Migrate(config, existingDefinitions, "General", "ContainerRefreshInterval", settings.ContainerRefreshInterval);
-        migrated |= Migrate(config, existingDefinitions, "Feeding", "FeedOre", settings.FeedOre);
-        migrated |= Migrate(config, existingDefinitions, "Feeding", "FeedFuel", settings.FeedFuel);
-        migrated |= Migrate(config, existingDefinitions, "Feeding", "UnlimitedFuel", settings.UnlimitedFuel);
-        migrated |= Migrate(config, existingDefinitions, "Fuel", "FuelPriority", settings.FuelPriority);
-        migrated |= Migrate(config, existingDefinitions, "Fuel", "FuelDisallowTypes", settings.FuelDisallowTypes);
-        migrated |= Migrate(config, existingDefinitions, "Stations", "EnableSmelter", settings.Smelter.Enabled);
-        migrated |= Migrate(config, existingDefinitions, "Stations", "EnableBlastFurnace", settings.BlastFurnace.Enabled);
-        migrated |= Migrate(config, existingDefinitions, "Stations", "EnableCharcoalKiln", settings.CharcoalKiln.Enabled);
-        migrated |= Migrate(config, existingDefinitions, "Stations", "EnableWindmill", settings.Windmill.Enabled);
-        migrated |= Migrate(config, existingDefinitions, "Stations", "EnableSpinningWheel", settings.SpinningWheel.Enabled);
-        migrated |= Migrate(config, existingDefinitions, "Stations", "EnableEitrRefinery", settings.EitrRefinery.Enabled);
-        migrated |= Migrate(config, existingDefinitions, "Stations", "EnableFrigidKiln", settings.FrigidKiln.Enabled);
-        migrated |= Migrate(config, existingDefinitions, "Stations", "EnableOven", settings.Oven);
-        migrated |= Migrate(
-            config,
-            existingDefinitions,
-            "Production Stations",
-            "AutoEmptyWindmillOutput",
-            settings.AutoEmptyWindmillOutput);
-        migrated |= Migrate(config, existingDefinitions, "Targets", "SmelterOreTarget", settings.Smelter.OreTarget);
-        migrated |= Migrate(config, existingDefinitions, "Targets", "SmelterFuelTarget", settings.Smelter.FuelTarget);
-        migrated |= Migrate(config, existingDefinitions, "Targets", "BlastFurnaceOreTarget", settings.BlastFurnace.OreTarget);
-        migrated |= Migrate(config, existingDefinitions, "Targets", "BlastFurnaceFuelTarget", settings.BlastFurnace.FuelTarget);
-        migrated |= Migrate(config, existingDefinitions, "Targets", "CharcoalKilnOreTarget", settings.CharcoalKiln.OreTarget);
-        migrated |= Migrate(config, existingDefinitions, "Targets", "CharcoalKilnFuelTarget", settings.CharcoalKiln.FuelTarget);
-        migrated |= Migrate(config, existingDefinitions, "Targets", "WindmillOreTarget", settings.Windmill.OreTarget);
-        migrated |= Migrate(config, existingDefinitions, "Targets", "WindmillFuelTarget", settings.Windmill.FuelTarget);
-        migrated |= Migrate(config, existingDefinitions, "Targets", "SpinningWheelOreTarget", settings.SpinningWheel.OreTarget);
-        migrated |= Migrate(config, existingDefinitions, "Targets", "SpinningWheelFuelTarget", settings.SpinningWheel.FuelTarget);
-        migrated |= Migrate(config, existingDefinitions, "Targets", "EitrRefineryOreTarget", settings.EitrRefinery.OreTarget);
-        migrated |= Migrate(config, existingDefinitions, "Targets", "EitrRefineryFuelTarget", settings.EitrRefinery.FuelTarget);
-        migrated |= Migrate(config, existingDefinitions, "Targets", "FrigidKilnOreTarget", settings.FrigidKiln.OreTarget);
-        migrated |= Migrate(config, existingDefinitions, "Targets", "FrigidKilnFuelTarget", settings.FrigidKiln.FuelTarget);
-        migrated |= Migrate(
-            config,
-            existingDefinitions,
-            "Production Targets",
-            "Frigid Kiln - Ore / Input Target",
-            settings.FrigidKiln.FuelTarget);
-        migrated |= Migrate(
-            config,
-            existingDefinitions,
-            "Production Targets",
-            "Frigid Kiln - Fuel Target",
-            settings.FrigidKiln.FuelTarget);
-        migrated |= Migrate(config, existingDefinitions, "Targets", "FireplaceFuelTarget", settings.Fireplaces.FuelTarget);
-        migrated |= Migrate(config, existingDefinitions, "Fireplaces", "FireplaceRange", settings.Fireplaces.Range);
-        migrated |= Migrate(config, existingDefinitions, "Fireplaces", "RefuelStandingTorches", settings.Fireplaces.RefuelStandingTorches);
-        migrated |= Migrate(config, existingDefinitions, "Fireplaces", "RefuelBraziers", settings.Fireplaces.RefuelBraziers);
-        migrated |= Migrate(config, existingDefinitions, "Fireplaces", "RefuelHotTub", settings.Fireplaces.RefuelHotTub);
-        migrated |= Migrate(config, existingDefinitions, "Fireplaces", "RefuelWallTorches", settings.Fireplaces.RefuelWallTorches);
-        migrated |= Migrate(config, existingDefinitions, "Fireplaces", "RefuelFirePits", settings.Fireplaces.RefuelFirePits);
-        migrated |= Migrate(config, existingDefinitions, "Fireplaces", "RefuelHearth", settings.Fireplaces.RefuelHearth);
-        migrated |= Migrate(config, existingDefinitions, "Fireplaces", "RefuelBonfires", settings.Fireplaces.RefuelBonfires);
-
-        return migrated;
-    }
-
-    private static bool Migrate<T>(
-        ConfigFile config,
-        HashSet<ConfigDefinition> existingDefinitions,
-        string legacySection,
-        string legacyKey,
-        ConfigEntry<T> replacement)
-    {
-        if (!config.TryGetEntry(legacySection, legacyKey, out ConfigEntry<T> legacyEntry))
-        {
-            return false;
-        }
-
-        if (!existingDefinitions.Contains(replacement.Definition))
-        {
-            replacement.Value = legacyEntry.Value;
-        }
-
-        return config.Remove(legacyEntry.Definition);
-    }
 }
 
 internal sealed class StationSettings

@@ -8,6 +8,7 @@ namespace SmeltAndFuel;
 internal sealed class ContainerDiscovery
 {
     private const float SpatialCellSize = 25f;
+    private const float RegistryRescanInterval = 30f;
 
     private static readonly Func<Container, long, bool> CheckAccess =
         NativeMethodDelegate.Create<Func<Container, long, bool>>(
@@ -16,20 +17,37 @@ internal sealed class ContainerDiscovery
             new[] { typeof(long) });
 
     private readonly AutoFeedSettings _settings;
-    private Container[] _containers = Array.Empty<Container>();
+    private readonly HashSet<Container> _knownContainers = new();
+    private readonly FeedDiagnostics _diagnostics;
     private Dictionary<SpatialCell, List<Container>> _containersByCell = new();
     private List<Container> _movingContainers = new();
+    private bool _registrySeeded;
+    private bool _registryDirty;
     private float _nextRefresh;
+    private float _nextRegistryRescan;
+    private static ContainerDiscovery? _active;
 
-    internal ContainerDiscovery(AutoFeedSettings settings)
+    internal ContainerDiscovery(AutoFeedSettings settings, FeedDiagnostics diagnostics)
     {
         _settings = settings;
+        _diagnostics = diagnostics;
+        _active = this;
+    }
+
+    internal static void Register(Container container)
+    {
+        _active?.RegisterContainer(container);
+    }
+
+    internal static void Unregister(Container container)
+    {
+        _active?.UnregisterContainer(container);
     }
 
     internal void FillUsableContainers(
         Vector3 targetPosition,
         float range,
-        long playerId,
+        IReadOnlyList<long> accessPlayerIds,
         float now,
         List<Container> results)
     {
@@ -53,7 +71,7 @@ internal sealed class ContainerDiscovery
 
                 foreach (Container container in containers)
                 {
-                    if (IsUsable(container, targetPosition, rangeSquared, playerId))
+                    if (IsUsable(container, targetPosition, rangeSquared, accessPlayerIds))
                     {
                         results.Add(container);
                     }
@@ -63,33 +81,61 @@ internal sealed class ContainerDiscovery
 
         foreach (Container container in _movingContainers)
         {
-            if (IsUsable(container, targetPosition, rangeSquared, playerId))
+            if (IsUsable(container, targetPosition, rangeSquared, accessPlayerIds))
             {
                 results.Add(container);
             }
         }
     }
 
-    internal bool IsUsable(Container container, Vector3 targetPosition, float rangeSquared, long playerId)
+    internal bool IsUsable(
+        Container container,
+        Vector3 targetPosition,
+        float rangeSquared,
+        IReadOnlyList<long> accessPlayerIds)
     {
         return container != null &&
                container.IsOwner() &&
                !container.IsInUse() &&
                (container.transform.position - targetPosition).sqrMagnitude <= rangeSquared &&
-               CheckAccess(container, playerId);
+               HasAccess(container, accessPlayerIds);
+    }
+
+    private static bool HasAccess(Container container, IReadOnlyList<long> accessPlayerIds)
+    {
+        for (int index = 0; index < accessPlayerIds.Count; index++)
+        {
+            if (CheckAccess(container, accessPlayerIds[index]))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void Refresh(float now)
     {
-        if (now < _nextRefresh)
+        if (now < _nextRefresh && !_registryDirty)
         {
             return;
         }
 
-        _containers = UnityEngine.Object.FindObjectsByType<Container>(FindObjectsSortMode.None);
+        long startTicks = _diagnostics.StartTiming();
+        if (!_registrySeeded || now >= _nextRegistryRescan)
+        {
+            foreach (Container container in UnityEngine.Object.FindObjectsByType<Container>(FindObjectsSortMode.None))
+            {
+                RegisterContainer(container);
+            }
+
+            _registrySeeded = true;
+            _nextRegistryRescan = now + RegistryRescanInterval;
+        }
+
         Dictionary<SpatialCell, List<Container>> containersByCell = new();
         List<Container> movingContainers = new();
-        foreach (Container container in _containers)
+        foreach (Container container in _knownContainers)
         {
             if (container == null)
             {
@@ -117,7 +163,25 @@ internal sealed class ContainerDiscovery
 
         _containersByCell = containersByCell;
         _movingContainers = movingContainers;
+        _registryDirty = false;
         _nextRefresh = now + _settings.ContainerRefreshInterval.Value;
+        _diagnostics.RecordContainerRefresh(startTicks, _knownContainers.Count);
+    }
+
+    private void RegisterContainer(Container container)
+    {
+        if (container != null && _knownContainers.Add(container))
+        {
+            _registryDirty = true;
+        }
+    }
+
+    private void UnregisterContainer(Container container)
+    {
+        if (_knownContainers.Remove(container))
+        {
+            _registryDirty = true;
+        }
     }
 
     private readonly struct SpatialCell : IEquatable<SpatialCell>

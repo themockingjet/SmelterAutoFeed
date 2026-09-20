@@ -7,12 +7,15 @@ namespace SmeltAndFuel;
 internal sealed class GroundItemDiscovery
 {
     private readonly AutoFeedSettings _settings;
+    private readonly FeedDiagnostics _diagnostics;
+    private readonly Dictionary<ItemDrop, ZNetView?> _itemViews = new();
     private ItemDrop[] _items = Array.Empty<ItemDrop>();
     private float _nextRefresh;
 
-    internal GroundItemDiscovery(AutoFeedSettings settings)
+    internal GroundItemDiscovery(AutoFeedSettings settings, FeedDiagnostics diagnostics)
     {
         _settings = settings;
+        _diagnostics = diagnostics;
     }
 
     internal void FillUsableItems(Vector3 targetPosition, float now, List<ItemDrop> results)
@@ -40,7 +43,12 @@ internal sealed class GroundItemDiscovery
             return false;
         }
 
-        ZNetView? itemView = itemDrop.GetComponent<ZNetView>();
+        if (!_itemViews.TryGetValue(itemDrop, out ZNetView? itemView))
+        {
+            itemView = itemDrop.GetComponent<ZNetView>();
+            _itemViews[itemDrop] = itemView;
+        }
+
         return itemView != null && itemView.IsValid() && itemView.IsOwner();
     }
 
@@ -51,7 +59,10 @@ internal sealed class GroundItemDiscovery
             return;
         }
 
+        long startTicks = _diagnostics.StartTiming();
         _items = UnityEngine.Object.FindObjectsByType<ItemDrop>(FindObjectsSortMode.None);
+        _itemViews.Clear();
         _nextRefresh = now + _settings.ContainerRefreshInterval.Value;
+        _diagnostics.RecordGroundRefresh(startTicks, _items.Length);
     }
 }

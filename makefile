@@ -35,7 +35,8 @@ PACKAGE_NAME ?=
 PACKAGE_VERSION ?=
 
 .PHONY: help validate-env validate-build validate-release preflight \
-	before-build before-release setup-references build package verify-release \
+	before-build before-release setup-references build build-debug package \
+	package-debug verify-release verify-release-debug \
 	deploy-test-server remove-test-server
 
 help:
@@ -46,8 +47,11 @@ help:
 		'  make validate-release  Check Thunderstore and release inputs' \
 		'  make preflight         Run all checks before building or releasing' \
 		'  make build             Validate and build the mod' \
+		'  make build-debug       Build with performance logging enabled by default' \
 		'  make package           Validate and create the release ZIP' \
+		'  make package-debug     Build and create a -debug diagnostic ZIP' \
 		'  make verify-release    Validate the release ZIP contents' \
+		'  make verify-release-debug Validate the -debug ZIP contents' \
 		'  make deploy-test-server TEST_SERVER=local' \
 		'                             Build, package, and install into a test server' \
 		'  make remove-test-server TEST_SERVER=local' \
@@ -189,10 +193,32 @@ setup-references:
 build: before-build
 	./scripts/build.sh
 
+build-debug: before-build
+	BUILD_CONFIGURATION=Release \
+	PERFORMANCE_LOGGING_DEFAULT=true \
+	RELEASE_OUTPUT_PATH="$(abspath $(RELEASE_DIR)/debug)" \
+	./scripts/build.sh
+
 package: before-release
+	PERFORMANCE_LOGGING_DEFAULT=false \
+	RELEASE_DIR="$(RELEASE_DIR)" \
+	./scripts/package.sh
+
+package-debug: before-release
+	PERFORMANCE_LOGGING_DEFAULT=true \
+	PACKAGE_SUFFIX="-debug" \
+	RELEASE_DIR="$(RELEASE_DIR)/debug" \
 	./scripts/package.sh
 
 verify-release: before-release
+	./scripts/verify-release.sh
+
+verify-release-debug: before-release
+	RELEASE_ARCHIVE="$(RELEASE_DIR)/debug/$$(sed -n \
+		's/^[[:space:]]*"name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
+		Thunderstore/manifest.json | head -n 1)-$$(sed -n \
+		's/^[[:space:]]*"version_number"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
+		Thunderstore/manifest.json | head -n 1)-debug.zip" \
 	./scripts/verify-release.sh
 
 deploy-test-server: build

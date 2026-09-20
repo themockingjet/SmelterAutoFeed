@@ -16,6 +16,14 @@ The project targets .NET Framework 4.8 and uses the shared Valheim reference
 environment. Load that environment, then run the standard validation and
 release sequence:
 
+SmeltAndFuel can run on player clients, on a dedicated server, or on both. It
+uses native Valheim ownership: only the current owner of a target may mutate
+it. When the server is configured with a server-ownership provider, server-side
+automation can centralize active targets. `Server Automation > Require Nearby
+Player` prevents server-side feeding when no player is near the target.
+Participating peers should use the same plugin version and matching gameplay
+configuration values because this mod has no configuration synchronization.
+
 Make targets automatically load `$HOME/.config/valheim-dev/env.sh` when it
 exists. Source that file manually only when using the variables from direct
 shell commands outside Make.
@@ -27,8 +35,24 @@ make package
 make verify-release
 ```
 
-The package is written to `release/SmeltAndFuel-0.6.2.zip` and contains only
+The package is written to `release/SmeltAndFuel-0.6.3.zip` and contains only
 the Thunderstore metadata files and `SmeltAndFuel.dll` at the ZIP root.
+
+For a diagnostic artifact, use:
+
+```bash
+make build-debug
+make package-debug
+make verify-release-debug
+```
+
+The diagnostic package is written to
+`release/debug/SmeltAndFuel-0.6.3-debug.zip`. Its build-time default enables
+the rate-limited `Diagnostics > Performance Logging` setting for newly created
+configuration files. The normal `build` and `package` targets always compile
+with performance logging disabled by default. As with any BepInEx setting, an
+existing configuration value is preserved; set the option to `true` manually
+if the debug package is installed over an existing config file.
 
 ## Deploy to a test server
 

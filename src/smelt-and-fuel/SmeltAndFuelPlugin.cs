@@ -8,13 +8,18 @@ public sealed class SmeltAndFuelPlugin : BaseUnityPlugin
 {
     internal const string PluginGuid = "str.smeltandfuel";
     private const string PluginName = "SmeltAndFuel";
-    private const string PluginVersion = "0.6.2";
+    private const string PluginVersion = "0.6.3";
 
     private void Awake()
     {
         AutoFeedSettings settings = AutoFeedSettings.Create(Config);
-        AutoFeedService.Configure(settings, exception => Logger.LogError(exception));
-        UnlimitedFuelService.Configure(settings);
+        PlayerPresenceService presence = new(settings);
+        AutoFeedService.Configure(
+            settings,
+            presence,
+            exception => Logger.LogError(exception),
+            message => Logger.LogInfo(message));
+        UnlimitedFuelService.Configure(settings, presence);
         new Harmony(PluginGuid).PatchAll();
     }
 

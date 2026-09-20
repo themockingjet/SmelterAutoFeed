@@ -1,5 +1,19 @@
 # Changelog
 
+## [Unreleased]
+
+## 0.6.3
+
+### Added
+
+- Added optional dedicated-server presence gating for server-owned targets.
+- Added server-side source access evaluation using nearby connected player IDs
+  instead of a `0` player-ID fallback.
+
+### Changed
+
+- Documented client/server blending with an external server-ownership provider.
+
 ## 0.6.2
 
 - Reduced automatic queue churn by skipping disabled or ineligible targets and
